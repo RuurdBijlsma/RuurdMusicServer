@@ -1,0 +1,27 @@
+{
+  "name": "ruurdmusic",
+  "version": "0.0.1",
+  "description": "Stream music",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruurdbijlsma/ruurdmusic.git"
+  },
+  "keywords": [
+    "ruurd",
+    "music",
+    "streaming"
+  ],
+  "author": "Ruurd Bijlsma",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ruurdbijlsma/ruurdmusic/issues"
+  },
+  "homepage": "https://github.com/ruurdbijlsma/ruurdmusic#readme",
+  "dependencies": {
+    "youtube-mp3-downloader": "^0.5.3"
+  }
+}
