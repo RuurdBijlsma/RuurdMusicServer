@@ -28,6 +28,7 @@ function YoutubeMp3Downloader(options) {
 
         self.emit("queueSize", self.downloadQueue.running() + self.downloadQueue.length());
 
+
         self.performDownload(task, function (err, result) {
             callback(err, result);
         });
@@ -56,6 +57,7 @@ YoutubeMp3Downloader.prototype.download = function (videoId, fileName) {
         fileName: fileName
     };
 
+
     self.downloadQueue.push(task, function (err, data) {
 
         self.emit("queueSize", self.downloadQueue.running() + self.downloadQueue.length());
@@ -78,14 +80,17 @@ YoutubeMp3Downloader.prototype.performDownload = function (task, callback) {
     };
 
     ytdl.getInfo(videoUrl, function (err, info) {
+        // console.log("YTINFO", info);
 
         if (err) {
             callback(err.message, resultObj);
         } else {
+            let {thumbnail, lengthSeconds, viewCount} = info.player_response.videoDetails;
+            thumbnail = thumbnail.thumbnails.sort((a, b) => b.height - a.height)[0].url;
+
             const videoTitle = self.cleanFileName(info.title);
             let artist = "Unknown";
             let title = videoTitle;
-            const thumbnail = info.iurlhq || null;
 
             if (videoTitle.indexOf("-") > -1) {
                 const temp = videoTitle.split("-");
@@ -148,6 +153,8 @@ YoutubeMp3Downloader.prototype.performDownload = function (task, callback) {
                             resultObj.artist = artist;
                             resultObj.title = title;
                             resultObj.thumbnail = thumbnail;
+                            resultObj.viewCount = viewCount;
+                            resultObj.duration = lengthSeconds;
                             callback(null, resultObj);
                         })
                         // .writeToStream(task.responseStream, (retcode, error) => {

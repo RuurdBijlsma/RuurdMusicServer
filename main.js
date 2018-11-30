@@ -5,7 +5,6 @@ const mp3Path = 'files';
 const secrets = require('./res/secrets.json');
 const onlyUserId = 1;
 
-
 // Express
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -25,7 +24,7 @@ const YD = new YoutubeMp3Downloader({
     "ffmpegPath": "lib/ffmpeg.exe",         // Where is the FFmpeg binary located?
     "outputPath": mp3Path,                 // Where should the downloaded and encoded files be stored?
     "youtubeVideoQuality": "highest",       // What video quality should be used?
-    "queueParallelism": 2,                  // How many parallel downloads/encodes should be started?
+    "queueParallelism": 3,                  // How many parallel downloads/encodes should be started?
     "progressTimeout": 2000                 // How long should be the interval of the progress reports
 });
 
@@ -48,7 +47,7 @@ function createApi() {
 
         let data;
         try {
-            data = await db.any('select "ytId", title, artist from songs inner join usersongs on usersongs.songid = songs."ytId" where userid = 1 order by added desc', user);
+            data = await db.any('select "ytid", title, artist from songs inner join usersongs on usersongs.songid = songs."ytid" where userid = 1 order by added desc', user);
         } catch (e) {
             console.log("PG ERROR", e)
         }
@@ -80,6 +79,9 @@ function createApi() {
             res.send("No song id provided, example /stream/pbMwTqkKSps.mp3");
         let ytId = req.params.id;
 
+        if (currentlyConverting.includes(ytId))
+            res.send("401: Server is currently converting this file, try again later");
+
         await cacheSongIfNeeded(ytId);
 
         let fileName = path.resolve(mp3Path + '/' + ytId + '.mp3');
@@ -88,6 +90,7 @@ function createApi() {
 
     app.listen(port, () => console.log(`Example app listening on port ${port}!`));
 }
+
 
 async function cacheSongIfNeeded(ytId) {
     if (!await isSongCached(ytId)) {
@@ -108,32 +111,38 @@ async function isSongCached(ytId) {
 
 async function getSongInfo(ytId) {
     try {
-        return await db.one('SELECT * FROM songs WHERE "ytId" = $1', ytId);
+        return await db.one('SELECT * FROM songs WHERE "ytid" = $1', ytId);
     } catch (e) {
         return false;
     }
 }
 
-async function addSongToDatabase(ytId, title, artist) {
+async function addSongToDatabase(ytId, title, artist, viewCount, duration, thumbnail) {
     try {
-        await db.one('select * from songs where "ytId" = $1', ytId);
+        await db.one('select * from songs where "ytid" = $1', ytId);
     } catch (e) {
         try {
-            await db.none('INSERT INTO songs("ytId", "title", "artist") VALUES($1, $2, $3)', [ytId, title, artist]);
+            await db.none('INSERT INTO songs("ytid", "title", "artist", "thumbnail", "duration", "viewcount") VALUES($1, $2, $3, $4, $5, $6)', [ytId, title, artist, thumbnail, duration, viewCount]);
         } catch (e) {
             console.log("PG ERROR: " + e);
         }
     }
 }
 
+const currentlyConverting = [];
+
 async function cacheSong(ytId) {
+    currentlyConverting.push(ytId);
     console.log("Running 'cacheSong' on id: ", ytId);
     return new Promise((resolve, error) => {
         YD.download(ytId, `${ytId}.mp3`);
 
         YD.on("finished", async (err, data) => {
-            await addSongToDatabase(data.videoId, data.title, data.artist);
-            resolve(data);
+            if (data.videoId === ytId) {
+                await addSongToDatabase(data.videoId, data.title, data.artist, data.viewCount, data.duration, data.thumbnail);
+                currentlyConverting.splice(currentlyConverting.indexOf(ytId), 1);
+                resolve(data);
+            }
         });
 
         YD.on("error", e => {
@@ -141,7 +150,8 @@ async function cacheSong(ytId) {
         });
 
         YD.on("progress", progress => {
-            console.log("Downloading and converting " + ytId, Math.round(progress.progress.percentage * 10) / 10 + '%');
+            if (progress.videoId === ytId)
+                console.log("Downloading and converting " + ytId, Math.round(progress.progress.percentage * 10) / 10 + '%');
         });
     });
 }

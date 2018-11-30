@@ -2,11 +2,14 @@ DROP TABLE IF EXISTS songs, users, usersongs;
 
 create table songs
 (
-  "ytId"      text not null
+  ytid      text not null
     constraint song_pkey
       primary key,
   title       text not null,
-  artist      text
+  artist      text not null,
+  thumbnail   text,
+  viewcount bigint,
+  duration    integer
 );
 
 create table users
@@ -26,6 +29,7 @@ create table usersongs
   songid text    not null
     constraint table_name_songid_fkey
       references songs,
+  added  timestamp,
   constraint usersongs_pk
     primary key (userid, songid)
 );
