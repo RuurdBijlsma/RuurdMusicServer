@@ -22,6 +22,14 @@
   },
   "homepage": "https://github.com/ruurdbijlsma/ruurdmusic#readme",
   "dependencies": {
-    "youtube-mp3-downloader": "^0.5.3"
+    "async": "latest",
+    "cors": "^2.8.5",
+    "express": "^4.16.4",
+    "fluent-ffmpeg": "latest",
+    "pg-promise": "^8.5.2",
+    "progress-stream": "latest",
+    "youtube-search": "^1.1.3",
+    "ytdl-core": "latest",
+    "body-parser": "latest"
   }
 }
