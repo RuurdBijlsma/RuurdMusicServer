@@ -1,8 +1,9 @@
 const fs = require('fs');
+const http = require('http');
 const path = require('path');
-const searcher = require('./Youtube.js');
+const searcher = require('./YoutubeSearch.js');
 const mp3Path = 'files';
-const secrets = require('./res/secrets.json');
+const secrets = require('../res/secrets.json');
 const onlyUserId = 1;
 
 // Express
@@ -75,6 +76,8 @@ function createApi() {
         res.send('success');
     });
     app.get('/stream/:id', async (req, res) => {
+        console.log("INCOMING REQUEST");
+
         if (!req.params.hasOwnProperty("id"))
             res.send("No song id provided, example /stream/pbMwTqkKSps.mp3");
         let ytId = req.params.id;

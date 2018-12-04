@@ -1,8 +1,7 @@
 const youtubeSearch = require('youtube-search');
-const fs = require('fs');
-const secrets = require('./res/secrets.json');
+const secrets = require('../res/secrets.json');
 
-class Youtube {
+class YoutubeSearch {
     async search(query, category, maxResults = 20) {
         const key = secrets.apiKey;
 
@@ -25,4 +24,4 @@ class Youtube {
 }
 
 
-module.exports = new Youtube();
+module.exports = new YoutubeSearch();

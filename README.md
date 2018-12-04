@@ -3,7 +3,7 @@
 * Postgres database
     * connection string should be set in res/secrets.json
     * to create the required tables, run database.sql
-* Api key for Youtube Data API V3
+* Api key for YoutubeSearch Data API V3
     * set in res/secrets.json
 * Nodejs & npm
 
