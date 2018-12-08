@@ -1,5 +1,5 @@
 const fs = require('fs');
-const http = require('http');
+const https = require('https');
 const path = require('path');
 const searcher = require('./YoutubeSearch.js');
 const mp3Path = 'files';
@@ -7,6 +7,14 @@ const secrets = require('../res/secrets.json');
 const onlyUserId = 1;
 
 // Express
+const credentials = {
+    // Real cert
+    key: fs.readFileSync('/etc/letsencrypt/live/rtc.ruurdbijlsma.com/privkey.pem'),
+    cert: fs.readFileSync('/etc/letsencrypt/live/rtc.ruurdbijlsma.com/fullchain.pem'),
+    // Development cert
+    // key: fs.readFileSync('../Certificate/key.pem'),
+    // cert: fs.readFileSync('../Certificate/cert.pem'),
+};
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -91,7 +99,10 @@ function createApi() {
         res.sendFile(fileName);
     });
 
-    app.listen(port, () => console.log(`Example app listening on port ${port}!`));
+    const httpsServer = https.createServer(credentials, app);
+    httpsServer.listen(3000);
+
+    // app.listen(port, () => console.log(`Example app listening on port ${port}!`));
 }
 
 
