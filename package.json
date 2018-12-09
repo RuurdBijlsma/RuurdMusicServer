@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/ruurdbijlsma/ruurdmusic#readme",
   "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.0.16",
     "async": "latest",
     "body-parser": "latest",
     "cors": "^2.8.5",

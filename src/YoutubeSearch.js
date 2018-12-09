@@ -17,7 +17,28 @@ class YoutubeSearch {
             youtubeSearch(query, opts, (err, results) => {
                 if (err) error(err);
 
-                resolve(results);
+                if (results) {
+                    let resultSongs = results.map(song => {
+                        let artist = "Unknown";
+                        let title = song.title;
+
+                        if (title.indexOf("-") > -1) {
+                            const temp = title.split("-");
+                            if (temp.length >= 2) {
+                                artist = temp.splice(0, 1)[0].trim();
+                                title = temp.join('-').trim();
+                            }
+                        }
+                        return {
+                            ytid: song.id,
+                            title: title,
+                            artist: artist,
+                            thumbnail: song.thumbnails.high.url
+                        }
+                    });
+
+                    resolve(resultSongs);
+                }
             });
         });
     }
