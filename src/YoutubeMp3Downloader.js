@@ -1,6 +1,6 @@
 "use strict";
 const os = require("os");
-const ffmpegBinary = require('@ffmpeg-installer/ffmpeg');
+// const ffmpegBinary = require('@ffmpeg-installer/ffmpeg');
 const util = require("util");
 const EventEmitter = require("events").EventEmitter;
 const ffmpeg = require("fluent-ffmpeg");
@@ -19,7 +19,10 @@ function YoutubeMp3Downloader(options) {
     self.progressTimeout = (options && options.progressTimeout ? options.progressTimeout : 1000);
     self.fileNameReplacements = [[/"/g, ""], [/'/g, ""], [/\//g, ""], [/\?/g, ""], [/:/g, ""], [/;/g, ""], [/\|/g, ""]];
     self.requestOptions = (options && options.requestOptions ? options.requestOptions : {maxRedirects: 5});
-    ffmpeg.setFfmpegPath(ffmpegBinary.path);
+
+    if (options && options.ffmpegPath) {
+        ffmpeg.setFfmpegPath(options.ffmpegPath);
+    }
 
     //Async download/transcode queue
     self.downloadQueue = async.queue(function (task, callback) {
