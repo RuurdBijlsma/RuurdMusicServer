@@ -9,7 +9,8 @@ create table songs
   artist      text not null,
   thumbnail   text,
   viewcount bigint,
-  duration    integer
+  duration    integer,
+  color       text
 );
 
 create table users

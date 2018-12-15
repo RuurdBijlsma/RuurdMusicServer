@@ -29,6 +29,7 @@
     "express": "^4.16.4",
     "fluent-ffmpeg": "latest",
     "horizon-youtube-mp3": "^1.9.1",
+    "node-vibrant": "^3.0.0",
     "pg-promise": "^8.5.2",
     "progress-stream": "latest",
     "youtube-search": "^1.1.3",

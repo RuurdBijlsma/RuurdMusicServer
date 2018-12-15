@@ -1,5 +1,6 @@
 const fs = require('fs');
 const https = require('https');
+const Vibrant = require('node-vibrant');
 const path = require('path');
 const searcher = require('./YoutubeSearch.js');
 const mp3Path = 'files';
@@ -14,6 +15,8 @@ const app = express();
 const port = 3000;
 app.use(cors());
 app.use(bodyParser.json());
+
+const Song = require('./Song');
 
 // Postgres
 const pgp = require('pg-promise')(/*options*/);
@@ -31,34 +34,56 @@ const YD = new YoutubeMp3Downloader({
 createMp3FolderIfNeeded();
 createApi();
 
+function getRequestParam(req, param = 'id') {
+    if (!req.params.hasOwnProperty(param))
+        res.send({error: `${param} parameter not provided`});
+    let value = req.params[param];
+    if (value === "undefined" || value === undefined) {
+        console.log("Invalid parameter provided: \"" + param + "\", value is", value);
+        return false;
+    }
+    return value;
+}
+
 function createApi() {
     app.get('/search/:query', async (req, res) => {
-        if (!req.params.hasOwnProperty("query"))
-            res.send({error: "No query provided"});
-        let query = req.params.query;
+        let query = getRequestParam(req, 'query');
+        if (!query) return;
 
-        console.log("search query", query);
+        console.log("[API] search: query", query);
         let data = await searcher.search(query);
-        res.send(data);
+
+        let tasks = [];
+        for (let song of data) {
+            let task = new Promise(async resolve => {
+                song.color = await getVibrantThumbnailColor(song.thumbnail);
+                resolve();
+            });
+            tasks.push(task);
+        }
+
+        await Promise.all(tasks);
+
+        res.send(data.map(d => Song.fromSearchObject(d)));
     });
     app.get('/songs/:user', async (req, res) => {
-        if (!req.params.hasOwnProperty("user"))
-            res.send({error: "No user provided"});
-        let user = +req.params.user;
+        let user = +getRequestParam(req, 'user');
+        if (!user) return;
 
+        console.log("[API] request songs, user:", user);
         let data;
         try {
-            data = await db.any('select ytid, title, artist, duration, viewcount, thumbnail from songs inner join usersongs on usersongs.songid = songs.ytid where userid = $1 order by added desc', user);
+            data = await db.any('select ytid, title, artist, duration, viewcount, thumbnail, color from songs inner join usersongs on usersongs.songid = songs.ytid where userid = $1 order by added desc', user);
         } catch (e) {
             console.log("PG ERROR", e)
         }
 
-        res.send(data);
+        res.send(data.map(d => Song.fromObject(d)));
     });
     app.post('/save/:id', async (req, res) => {
-        if (!req.params.hasOwnProperty("id"))
-            res.send({error: "No song id provided, example /stream/pbMwTqkKSps.mp3"});
-        let ytId = req.params.id;
+        let ytId = getRequestParam(req);
+        if (!ytId) return;
+        console.log("[API] save song, id:", ytId);
 
         await cacheSongIfNeeded(ytId);
 
@@ -68,20 +93,27 @@ function createApi() {
         res.send({success: true});
     });
     app.post('/remove/:id', async (req, res) => {
-        if (!req.params.hasOwnProperty("id"))
-            res.send({error: "No song id provided, example /stream/pbMwTqkKSps.mp3"});
-        let ytId = req.params.id;
+        let ytId = getRequestParam(req);
+        if (!ytId) return;
+        console.log("[API] remove song, id:", ytId);
 
         await db.none('delete from usersongs where userid=$1 and songid = $2', [onlyUserId, ytId]);
 
         res.send({success: true});
     });
-    app.get('/stream/:id', async (req, res) => {
-        console.log("INCOMING STREAM REQUEST");
+    app.get('/await/:id', async (req, res) => {
+        let ytId = getRequestParam(req);
+        if (!ytId) return;
+        console.log("[API] await song, id:", ytId);
 
-        if (!req.params.hasOwnProperty("id"))
-            res.send({error: "No song id provided, example /stream/pbMwTqkKSps.mp3"});
-        let ytId = req.params.id;
+        await cacheSongIfNeeded(ytId);
+        console.log("AWAIT DONE");
+        res.send({loaded: ytId});
+    });
+    app.get('/stream/:id', async (req, res) => {
+        let ytId = getRequestParam(req);
+        if (!ytId) return;
+        console.log("[API] stream song, id:", ytId);
 
         if (await isSongCached(ytId)) {
             let fileName = path.resolve(mp3Path + '/' + ytId + '.mp3');
@@ -93,11 +125,9 @@ function createApi() {
         }
     });
     app.get('/download/:id', async (req, res) => {
-        console.log("INCOMING DOWNLOAD REQUEST");
-
-        if (!req.params.hasOwnProperty("id"))
-            res.send({error: "No song id provided, example /stream/pbMwTqkKSps.mp3"});
-        let ytId = req.params.id;
+        let ytId = getRequestParam(req);
+        if (!ytId) return;
+        console.log("[API] download song, id:", ytId);
 
         await cacheSongIfNeeded(ytId);
 
@@ -173,12 +203,25 @@ async function getSongInfo(ytId) {
     }
 }
 
+async function getVibrantThumbnailColor(thumbnailUrl) {
+    let palette = await Vibrant.from(thumbnailUrl).getPalette();
+    if (palette.Vibrant) {
+        return palette.Vibrant.getHex();
+    } else {
+        for (let prop in palette)
+            if (palette[prop] !== null)
+                return palette[prop].getHex();
+        return '#2b19ff';
+    }
+}
+
 async function addSongToDatabase(ytId, title, artist, viewCount, duration, thumbnail) {
+    let color = await getVibrantThumbnailColor(thumbnail);
     try {
         await db.one('select * from songs where "ytid" = $1', ytId);
     } catch (e) {
         try {
-            await db.none('INSERT INTO songs("ytid", "title", "artist", "thumbnail", "duration", "viewcount") VALUES($1, $2, $3, $4, $5, $6)', [ytId, title, artist, thumbnail, duration, viewCount]);
+            await db.none('INSERT INTO songs("ytid", "title", "artist", "thumbnail", "duration", "viewcount", "color") VALUES($1, $2, $3, $4, $5, $6, $7)', [ytId, title, artist, thumbnail, duration, viewCount, color]);
         } catch (e) {
             console.log("PG ERROR: " + e);
         }
@@ -192,6 +235,9 @@ async function streamSong(ytId, responseStream) {
 const currentlyConverting = [];
 
 async function cacheSong(ytId) {
+    if (currentlyConverting.includes(ytId))
+        return await waitUntilSongIsConvertedIfNeeded(ytId);
+
     currentlyConverting.push(ytId);
     console.log("Running 'cacheSong' on id: ", ytId);
     return new Promise((resolve, error) => {
