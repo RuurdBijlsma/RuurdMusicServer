@@ -205,8 +205,8 @@ async function waitUntilSongIsConvertedIfNeeded(ytId) {
 function getHttpsCredentials() {
     try {
         return {
-            key: fs.readFileSync('/etc/letsencrypt/live/grun.ruurdbijlsma.com/privkey.pem'),
-            cert: fs.readFileSync('/etc/letsencrypt/live/grun.ruurdbijlsma.com/fullchain.pem'),
+            key: fs.readFileSync('/etc/letsencrypt/live/rtc.ruurdbijlsma.com/privkey.pem'),
+            cert: fs.readFileSync('/etc/letsencrypt/live/rtc.ruurdbijlsma.com/fullchain.pem'),
         }
     } catch (e) {
         return false;
