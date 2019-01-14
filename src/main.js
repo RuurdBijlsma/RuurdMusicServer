@@ -5,7 +5,6 @@ const path = require('path');
 const searcher = require('./YoutubeSearch.js');
 const mp3Path = 'files';
 const secrets = require('../res/secrets.json');
-const accountManager = require('./AccountManager');
 const onlyUserId = 1;
 
 // Express
@@ -22,6 +21,8 @@ const Song = require('./Song');
 // Postgres
 const pgp = require('pg-promise')(/*options*/);
 const db = pgp(secrets.connectionString);
+const accountManager = require('./AccountManager');
+accountManager.setDatabase(db);
 
 // Youtube 2 Mp3
 const YoutubeMp3Downloader = require("./YoutubeMp3Downloader.js");
@@ -37,7 +38,7 @@ createApi();
 
 function postRequestParam(req, param) {
     if (!req.body.hasOwnProperty(param)) {
-        console.warn("Invalid request param supplied");
+        console.log("Invalid parameter provided: " + param);
         return false;
     }
     let value = req.body[param];
@@ -64,18 +65,20 @@ function getRequestParam(req, param = 'id') {
 async function getLoggedUserByRequest(req) {
     let username = postRequestParam(req, 'user');
     let password = postRequestParam(req, 'password');
-    return await accountManager.login(username, password);
+    return (await accountManager.login(username, password)).id;
 }
 
 function createApi() {
-    api.post('/register/', async (req, res) => {
+    app.post('/register/', async (req, res) => {
         let username = postRequestParam(req, 'user');
         let password = postRequestParam(req, 'password');
-        return await accountManager.register(username, password);
+        let success = await accountManager.register(username, password);
+        if(success)res.send("Success");
+        else res.send("Fail");
     });
     app.post('/search/:query', async (req, res) => {
-        let user = await getLoggedUserByRequest(req);
-        if (!user) return res.send('Not logged in');
+        let userId = await getLoggedUserByRequest(req);
+        if (!userId) return res.send('Not logged in');
 
         let query = getRequestParam(req, 'query');
         if (!query) return;
@@ -97,13 +100,13 @@ function createApi() {
         res.send(data.map(d => Song.fromSearchObject(d)));
     });
     app.post('/songs/', async (req, res) => {
-        let user = await getLoggedUserByRequest(req);
-        if (!user) return res.send('Not logged in');
+        let userId = await getLoggedUserByRequest(req);
+        if (!userId) return res.send('Not logged in');
 
-        console.log("[API] request songs, user:", user);
+        console.log("[API] request songs, user:", userId);
         let data;
         try {
-            data = await db.any('select ytid, title, artist, duration, viewcount, thumbnail, color from songs inner join usersongs on usersongs.songid = songs.ytid where userid = $1 order by added desc', user);
+            data = await db.any('select ytid, title, artist, duration, viewcount, thumbnail, color from songs inner join usersongs on usersongs.songid = songs.ytid where userid = $1 order by added desc', userId);
         } catch (e) {
             console.log("PG ERROR", e)
         }
@@ -111,8 +114,8 @@ function createApi() {
         res.send(data.map(d => Song.fromObject(d)));
     });
     app.post('/save/:id', async (req, res) => {
-        let user = await getLoggedUserByRequest(req);
-        if (!user) return res.send('Not logged in');
+        let userId = await getLoggedUserByRequest(req);
+        if (!userId) return res.send('Not logged in');
 
         let ytId = getRequestParam(req);
         if (!ytId) return;
@@ -121,25 +124,25 @@ function createApi() {
         await cacheSongIfNeeded(ytId);
 
         let date = new Date();
-        await db.none('INSERT INTO usersongs(userid, songid, added) VALUES ($1, $2, $3)', [user, ytId, date]);
+        await db.none('INSERT INTO usersongs(userid, songid, added) VALUES ($1, $2, $3)', [userId, ytId, date]);
 
         res.send({success: true});
     });
     app.post('/remove/:id', async (req, res) => {
-        let user = await getLoggedUserByRequest(req);
-        if (!user) return res.send('Not logged in');
+        let userId = await getLoggedUserByRequest(req);
+        if (!userId) return res.send('Not logged in');
 
         let ytId = getRequestParam(req);
         if (!ytId) return;
         console.log("[API] remove song, id:", ytId);
 
-        await db.none('delete from usersongs where userid=$1 and songid = $2', [user, ytId]);
+        await db.none('delete from usersongs where userid=$1 and songid = $2', [userId, ytId]);
 
         res.send({success: true});
     });
     app.post('/await/:id', async (req, res) => {
-        let user = await getLoggedUserByRequest(req);
-        if (!user) return res.send('Not logged in');
+        let userId = await getLoggedUserByRequest(req);
+        if (!userId) return res.send('Not logged in');
 
         let ytId = getRequestParam(req);
         if (!ytId) return;
@@ -149,10 +152,7 @@ function createApi() {
         console.log("AWAIT DONE");
         res.send({loaded: ytId});
     });
-    app.post('/stream/:id', async (req, res) => {
-        let user = await getLoggedUserByRequest(req);
-        if (!user) return res.send('Not logged in');
-
+    app.get('/stream/:id', async (req, res) => {
         let ytId = getRequestParam(req);
         if (!ytId) return;
         console.log("[API] stream song, id:", ytId);
@@ -166,10 +166,7 @@ function createApi() {
             await streamSong(ytId, res);
         }
     });
-    app.post('/download/:id', async (req, res) => {
-        let user = await getLoggedUserByRequest(req);
-        if (!user) return res.send('Not logged in');
-
+    app.get('/download/:id', async (req, res) => {
         let ytId = getRequestParam(req);
         if (!ytId) return;
         console.log("[API] download song, id:", ytId);

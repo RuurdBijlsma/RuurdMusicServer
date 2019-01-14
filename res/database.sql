@@ -35,4 +35,4 @@ create table usersongs
     primary key (userid, songid)
 );
 
-insert into users(name, password) values ('default','user')
+insert into users(name, password) values ('defaultuser','$2b$10$Sfwl73nC6OfobEvN.ETd..1q6KpLT9iFfh55BeL0g5ISPCGcF/Vi6')
