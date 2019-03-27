@@ -5,6 +5,7 @@ const path = require('path');
 const searcher = require('./YoutubeSearch.js');
 const mp3Path = 'files';
 const secrets = require('../res/secrets.json');
+const homedir = require('os').homedir();
 const onlyUserId = 1;
 
 // Express
@@ -201,9 +202,10 @@ async function waitUntilSongIsConvertedIfNeeded(ytId) {
 
 function getHttpsCredentials() {
     try {
+        let certPath = path.join(homedir, 'ruurd.dev-ssl-bundle');
         return {
-            key: fs.readFileSync('/etc/letsencrypt/live/rtc.ruurdbijlsma.com/privkey.pem'),
-            cert: fs.readFileSync('/etc/letsencrypt/live/rtc.ruurdbijlsma.com/fullchain.pem'),
+            key: fs.readFileSync(path.join(certPath, 'private.key.pem')),
+            cert: fs.readFileSync(path.join(certPath, 'domain.cert.pem')),
         }
     } catch (e) {
         return false;
